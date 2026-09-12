@@ -1,0 +1,95 @@
+<% content_for :title, "Review #{@ship.frozen_name}" %>
+
+<p><%= link_to "← Queue", staff_ships_path %></p>
+
+<h1><%= @ship.frozen_name %></h1>
+<p>
+  by <%= @ship.project.user.name %> ·
+  submitted <%= @ship.submitted_at.strftime("%b %-d, %Y at %H:%M") %> ·
+  <span class="status status-<%= @ship.status %>"><%= @ship.status %></span>
+</p>
+
+<%# Everything below is the frozen snapshot, not the live project. %>
+<section class="snapshot">
+  <h2>Submitted state</h2>
+  <dl>
+    <dt>Repo</dt>
+    <dd><%= external_link @ship.frozen_repo_link %></dd>
+    <dt>Demo</dt>
+    <dd><%= external_link @ship.frozen_demo_link %></dd>
+    <dt>Description</dt>
+    <dd><%= simple_format(@ship.frozen_description.presence || "—") %></dd>
+    <% if @ship.justification.present? %>
+      <dt>Justification</dt>
+      <dd><%= simple_format(@ship.justification) %></dd>
+    <% end %>
+  </dl>
+  <% if safe_external_url?(@ship.frozen_screenshot_url) %>
+    <%= image_tag @ship.frozen_screenshot_url, alt: "Submitted screenshot", loading: "lazy", referrerpolicy: "no-referrer" %>
+  <% end %>
+  <p class="muted">
+    <%= link_to "Live project", staff_project_path(@ship.project.public_id) %> —
+    may differ from what is shown here.
+  </p>
+</section>
+
+<% if @ship.decided? %>
+  <section>
+    <h2>Decision</h2>
+    <p>
+      <%= @ship.status.titleize %> by <%= @ship.reviewer&.name || "unknown" %>
+      on <%= @ship.reviewed_at&.strftime("%b %-d, %Y") %>
+      <% if @ship.approved_seconds %>
+        · <%= (@ship.approved_seconds / 3600.0).round(1) %> h
+      <% end %>
+    </p>
+    <%= simple_format(@ship.feedback) if @ship.feedback.present? %>
+  </section>
+<% end %>
+
+<% if @ship.project.user == current_user %>
+  <%# Staff submit projects too. Say why the form is gone rather than leaving a
+      reviewer to wonder whether the page is broken. %>
+  <section>
+    <h2>Decide</h2>
+    <p class="muted">This is your own submission. Someone else has to review it.</p>
+  </section>
+<% elsif policy(@ship).update? %>
+  <section>
+    <h2><%= @ship.decided? ? "Change decision" : "Decide" %></h2>
+    <%= form_with url: staff_ship_path(@ship.public_id), method: :patch do |f| %>
+      <p>
+        <%= f.label :status, "Decision" %>
+        <%= f.select :status, Ship.statuses.keys.excluding("pending"), selected: @ship.status %>
+      </p>
+      <p>
+        <%= f.label :approved_hours, "Hours (approval only)" %>
+        <%= f.number_field :approved_hours, step: 0.25, min: 0.25,
+                           value: @ship.approved_seconds && (@ship.approved_seconds / 3600.0).round(2) %>
+      </p>
+      <p>
+        <%= f.label :feedback, "Feedback (required to return or reject)" %>
+        <%= f.text_area :feedback, rows: 6, value: @ship.feedback %>
+      </p>
+      <%= f.submit "Save decision" %>
+    <% end %>
+  </section>
+<% end %>
+
+<section class="history">
+  <h2>History</h2>
+  <%# The audit trail is why a decision months old can still be explained. %>
+  <% actors = version_actors(@versions) %>
+  <ol>
+    <% @versions.each do |version| %>
+      <li>
+        <%= version.created_at.strftime("%b %-d, %Y at %H:%M") %> —
+        <%= actors[version.whodunnit]&.name || "system" %>
+        <%= version_summary(version) %>
+        <% if version.ip.present? %>
+          <span class="muted">from <%= version.ip %></span>
+        <% end %>
+      </li>
+    <% end %>
+  </ol>
+</section>

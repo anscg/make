@@ -1,0 +1,41 @@
+<% content_for :title, @project.name %>
+
+<p><%= link_to "← Projects", staff_projects_path %></p>
+
+<h1><%= @project.name %></h1>
+<p>
+  by <%= @project.user.name %> ·
+  <%= @project.is_unlisted ? "unlisted" : "listed" %>
+  <%= "· removed #{@project.discarded_at.strftime('%b %-d, %Y')}" if @project.discarded? %>
+</p>
+
+<dl>
+  <dt>Repo</dt>
+  <dd><%= external_link @project.repo_link %></dd>
+  <dt>Demo</dt>
+  <dd><%= external_link @project.demo_link %></dd>
+  <dt>Tags</dt>
+  <dd><%= @project.tags.presence&.join(", ") || "—" %></dd>
+  <dt>Description</dt>
+  <dd><%= simple_format(@project.description.presence || "—") %></dd>
+</dl>
+
+<h2>Ships</h2>
+<% if @project.ships.empty? %>
+  <p>Never submitted.</p>
+<% else %>
+  <ul>
+    <% @project.ships.order(submitted_at: :desc).each do |ship| %>
+      <li>
+        <%= link_to ship.submitted_at.strftime("%b %-d, %Y"), staff_ship_path(ship.public_id) %>
+        — <span class="status status-<%= ship.status %>"><%= ship.status %></span>
+      </li>
+    <% end %>
+  </ul>
+<% end %>
+
+<% if current_user.admin? && @project.kept? %>
+  <%= button_to "Remove project", staff_project_path(@project.public_id),
+                method: :delete,
+                data: { turbo_confirm: "Remove #{@project.name}? Ships stay for the record." } %>
+<% end %>

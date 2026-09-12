@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+# Runs Rails (:3000) and Next (:3001) together with prefixed output.
+# Ctrl-C stops both.
+#
+# Deliberately bash-3.2 compatible: macOS still ships bash 3.2, which has no
+# `wait -n`. Using it here would abort the script instantly.
+set -uo pipefail
+
+cd "$(dirname "$0")/.."
+root="$PWD"
+
+# Kills this process group, so children and grandchildren (npm -> next-server)
+# all go down rather than being orphaned.
+cleanup() {
+  trap - INT TERM EXIT
+  kill 0 2>/dev/null || true
+}
+trap cleanup INT TERM EXIT
+
+# awk rather than sed -u/-l, which differ between BSD and GNU.
+label() { awk -v tag="$1" '{ printf "%s %s\n", tag, $0; fflush() }'; }
+
+printf '\033[36m==> api\033[0m  http://localhost:3000  staff UI + JSON API\n'
+printf '\033[35m==> web\033[0m  http://localhost:3001  public site\n\n'
+
+( cd "$root/api" && exec bin/rails server -p 3000 ) \
+  > >(label $'\033[36m[api]\033[0m') 2>&1 &
+
+( cd "$root/web" && exec npm run dev ) \
+  > >(label $'\033[35m[web]\033[0m') 2>&1 &
+
+wait

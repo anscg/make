@@ -1,0 +1,4 @@
+<h1>make — staff</h1>
+<p>Signed in as <%= current_user %><%= " (admin)" if current_user.admin? %>.</p>
+
+<%= button_to "Sign out", logout_path, method: :delete %>

@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+# One-command setup for both apps.
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+root="$PWD"
+
+say() { printf '\n\033[1m==> %s\033[0m\n' "$1"; }
+
+say "Checking Postgres"
+if ! pg_isready -q; then
+  echo "Postgres is not reachable. Start it, then re-run bin/setup." >&2
+  exit 1
+fi
+echo "ok"
+
+say "Rails (api/)"
+cd "$root/api"
+bundle install
+bin/rails db:prepare
+if [ ! -f .env.development ]; then
+  echo "WARNING: api/.env.development is missing." >&2
+  echo "         Needs HASHID_SALT, HACKCLUB_CLIENT_ID, HACKCLUB_CLIENT_SECRET." >&2
+  echo "         See .env.example at the repo root." >&2
+fi
+
+say "Next (web/)"
+cd "$root/web"
+npm install
+[ -f .env.local ] || cp .env.example .env.local
+
+say "Done"
+cat <<'MSG'
+Start both with:
+
+  bin/dev
+
+Register this callback in your HCA app at https://auth.hackclub.com:
+
+  http://localhost:3001/auth/hack_club/callback
+
+Note the port — the callback goes through Next, not straight to Rails.
+MSG

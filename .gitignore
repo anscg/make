@@ -1,0 +1,8 @@
+# Environment files live next to the app that reads them and are never committed.
+.env
+.env.*
+!.env.example
+
+# Editor / OS noise
+.DS_Store
+*.swp

@@ -1,0 +1,36 @@
+<% content_for :title, "Review queue" %>
+
+<h1>Review queue</h1>
+
+<nav class="filters">
+  <%= link_to "All (#{@counts.values.sum})", staff_ships_path %>
+  <% Staff::ShipsController::STATUS_FILTERS.each do |status| %>
+    <%= link_to "#{status.titleize} (#{@counts[status].to_i})",
+                staff_ships_path(status: status),
+                class: ("current" if params[:status] == status) %>
+  <% end %>
+</nav>
+
+<% if @ships.empty? %>
+  <p>Nothing here.</p>
+<% else %>
+  <table>
+    <thead>
+      <tr>
+        <th>Project</th><th>Kid</th><th>Status</th><th>Reviewer</th><th>Submitted</th><th></th>
+      </tr>
+    </thead>
+    <tbody>
+      <% @ships.each do |ship| %>
+        <tr>
+          <td><%= ship.frozen_name %></td>
+          <td><%= ship.project.user.name %></td>
+          <td class="status status-<%= ship.status %>"><%= ship.status %></td>
+          <td><%= ship.reviewer&.name || "—" %></td>
+          <td><%= time_ago_in_words(ship.submitted_at) %> ago</td>
+          <td><%= link_to "Review", staff_ship_path(ship.public_id) %></td>
+        </tr>
+      <% end %>
+    </tbody>
+  </table>
+<% end %>

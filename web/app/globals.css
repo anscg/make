@@ -1,0 +1,217 @@
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --font-fredoka: var(--font-fredoka);
+  --font-borel: var(--font-borel);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+/* Dialog inline text effects — see app/components/dialog/textEffects.ts.
+   Per-letter loops, phased by --i so they ripple along the word. Sized in em
+   so they scale with the bubble. */
+.dlg-fx-wobble,
+.dlg-fx-shake {
+  display: inline-block;
+  will-change: transform;
+}
+
+@keyframes dlg-wobble {
+  0%,
+  100% {
+    transform: translateY(0.07em) rotate(-4deg);
+  }
+  50% {
+    transform: translateY(-0.07em) rotate(4deg);
+  }
+}
+.dlg-fx-wobble {
+  animation: dlg-wobble 0.75s ease-in-out infinite;
+  animation-delay: calc(var(--i, 0) * -0.11s);
+}
+
+@keyframes dlg-shake {
+  0% {
+    transform: translate(0.03em, -0.02em) rotate(1.5deg);
+  }
+  25% {
+    transform: translate(-0.03em, 0.02em) rotate(-1deg);
+  }
+  50% {
+    transform: translate(0.02em, 0.03em) rotate(-1.5deg);
+  }
+  75% {
+    transform: translate(-0.02em, -0.03em) rotate(1deg);
+  }
+  100% {
+    transform: translate(0.03em, -0.02em) rotate(1.5deg);
+  }
+}
+.dlg-fx-shake {
+  animation: dlg-shake 0.16s steps(1, end) infinite;
+  animation-delay: calc(var(--i, 0) * -0.04s);
+}
+
+/* [count] digits — fixed-width figures so the number does not jitter as it rolls. */
+.dlg-fx-count {
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dlg-fx-wobble,
+  .dlg-fx-shake {
+    animation: none;
+  }
+}
+
+/* Strip panel checker weave, drifting one tile period per loop so it is
+   seamless. Runs inside a rotated wrapper, so it slides along the diagonal. */
+@keyframes dlg-checker-drift {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(calc(var(--dlg-u, 1px) * -200));
+  }
+}
+.dlg-checker-drift {
+  animation: dlg-checker-drift 6s linear infinite;
+  will-change: transform;
+}
+@media (prefers-reduced-motion: reduce) {
+  .dlg-checker-drift {
+    animation: none;
+  }
+}
+
+/* GameButton enable sweep — see app/components/GameButton.tsx. A soft diagonal
+   band of light crosses the face once when the button goes from disabled to
+   enabled. The clip keeps it inside the rounded face while the band overhangs. */
+.gb-sweep-clip {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+@keyframes gb-sweep {
+  from {
+    transform: translateX(-100%) skewX(-20deg);
+  }
+  to {
+    transform: translateX(100%) skewX(-20deg);
+  }
+}
+.gb-sweep {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 10%,
+    rgba(255, 255, 255, 0.12) 35%,
+    rgba(255, 255, 255, 0.3) 50%,
+    rgba(255, 255, 255, 0.12) 65%,
+    transparent 90%
+  );
+  animation: gb-sweep 0.8s cubic-bezier(0.4, 0, 0.2, 1) 0.1s both;
+  will-change: transform;
+}
+@media (prefers-reduced-motion: reduce) {
+  .gb-sweep {
+    animation-duration: 0.01s;
+  }
+}
+
+/* Duolingo-style option card — see app/components/OptionList.tsx. The thick
+   bottom edge is a hard box-shadow rather than a wider border, so pressing
+   (sink 2 units, drop the shadow) changes no layout and neighbours stay put. */
+.dlg-option {
+  --dlg-option-edge: calc(var(--dlg-u, 1px) * 2);
+  --dlg-option-color: #e5e5e5;
+  display: block;
+  width: 100%;
+  text-align: left;
+  font-family: var(--font-fredoka);
+  font-weight: 500;
+  line-height: 1.2;
+  color: #4b4b4b;
+  background: #ffffff;
+  border-style: solid;
+  border-color: var(--dlg-option-color);
+  box-shadow: 0 var(--dlg-option-edge) 0 var(--dlg-option-color);
+  cursor: pointer;
+  outline: none;
+  transition:
+    background-color 0.12s ease,
+    border-color 0.12s ease,
+    color 0.12s ease,
+    transform 0.07s ease-out,
+    box-shadow 0.07s ease-out;
+}
+.dlg-option-card {
+  width: auto;
+  text-align: center;
+  white-space: nowrap;
+}
+.dlg-option:has(.dlg-option-icon) {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--dlg-u, 1px) * 12);
+}
+.dlg-option-card:has(.dlg-option-icon) {
+  justify-content: center;
+}
+/* Fixed-column grids left-align like the list, so labels of different
+   lengths line up at the icon instead of floating in their cell. */
+.dlg-option-grid,
+.dlg-option-grid:has(.dlg-option-icon) {
+  text-align: left;
+  justify-content: flex-start;
+  white-space: normal;
+}
+.dlg-option-icon {
+  display: inline-flex;
+  flex: none;
+}
+.dlg-option-icon > svg {
+  width: 100%;
+  height: 100%;
+  fill: currentColor;
+}
+.dlg-option:hover {
+  background: #f7f7f7;
+}
+.dlg-option:focus-visible {
+  --dlg-option-color: #84d8ff;
+}
+.dlg-option:active {
+  transform: translateY(var(--dlg-option-edge));
+  box-shadow: 0 0 0 var(--dlg-option-color);
+}
+.dlg-option[aria-selected="true"] {
+  --dlg-option-color: #84d8ff;
+  background: #ddf4ff;
+  color: #1cb0f6;
+}
+.dlg-option[aria-selected="true"]:hover {
+  background: #ddf4ff;
+}

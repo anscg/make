@@ -1,0 +1,42 @@
+# PostgreSQL. Versions 9.3 and up are supported.
+#
+#   Install the pg driver:
+#     gem install pg
+#   On macOS with Homebrew:
+#     brew install postgresql
+#
+default: &default
+  adapter: postgresql
+  encoding: unicode
+  pool: <%= ENV.fetch("RAILS_MAX_THREADS") { 5 } %>
+
+development:
+  <<: *default
+  database: make_development
+
+# Warning: The database defined as "test" will be erased and
+# re-generated from your development database when you run "rake".
+# Do not set this db to the same as development or production.
+test:
+  <<: *default
+  database: make_test
+
+# Solid Cache, Queue, and Cable each get their own database so their schema
+# loads and retention policies stay independent of application data. Point the
+# *_DATABASE_URL vars at separate databases on the same instance.
+production:
+  primary: &production_primary
+    <<: *default
+    url: <%= ENV["DATABASE_URL"] %>
+  cache:
+    <<: *production_primary
+    url: <%= ENV["CACHE_DATABASE_URL"] %>
+    migrations_paths: db/cache_migrate
+  queue:
+    <<: *production_primary
+    url: <%= ENV["QUEUE_DATABASE_URL"] %>
+    migrations_paths: db/queue_migrate
+  cable:
+    <<: *production_primary
+    url: <%= ENV["CABLE_DATABASE_URL"] %>
+    migrations_paths: db/cable_migrate
