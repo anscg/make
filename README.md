@@ -160,7 +160,7 @@ bin/dev
 | | |
 |---|---|
 | `web/` | Vercel. Set `RAILS_URL`, `PUBLIC_HOST`, `ORIGIN_SECRET`. |
-| `api/` | Any container host. Build context is `api/`. |
+| `api/` | Any container host. `api/compose.yml` runs `web` + `jobs` for Coolify/Dokploy; Postgres is a separate platform resource, not part of the stack. |
 
 Production also needs Active Record encryption keys — `AR_ENCRYPTION_PRIMARY_KEY`,
 `AR_ENCRYPTION_DETERMINISTIC_KEY`, `AR_ENCRYPTION_KEY_DERIVATION_SALT`, from

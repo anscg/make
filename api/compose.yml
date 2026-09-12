@@ -1,0 +1,59 @@
+# Production stack for the Rails half, built for Coolify or Dokploy.
+#
+# Postgres is deliberately NOT here. Create it as a platform database resource
+# (backups, restores, its own lifecycle) with four databases inside it, and
+# point the *_DATABASE_URL vars at its internal hostname. A database defined in
+# this file would be torn down with the stack, and db:prepare in the entrypoint
+# would then boot the app against fresh empty tables — with the encryption keys
+# still set, that is how every frozen ship snapshot quietly becomes garbage.
+#
+# All values come from the platform's environment UI. `${VAR:?}` makes a
+# missing one fail the deploy instead of starting a half-configured app.
+
+x-app: &app
+  build:
+    context: .
+  restart: unless-stopped
+  environment:
+    RAILS_MASTER_KEY: ${RAILS_MASTER_KEY:?}
+    DATABASE_URL: ${DATABASE_URL:?}
+    CACHE_DATABASE_URL: ${CACHE_DATABASE_URL:?}
+    QUEUE_DATABASE_URL: ${QUEUE_DATABASE_URL:?}
+    CABLE_DATABASE_URL: ${CABLE_DATABASE_URL:?}
+    PUBLIC_HOST: ${PUBLIC_HOST:?}
+    STAFF_HOST: ${STAFF_HOST:?}
+    # Blank disables verify_proxy!, so it is required here even though dev
+    # runs without it. Set the same value on the Vercel project.
+    ORIGIN_SECRET: ${ORIGIN_SECRET:?}
+    HASHID_SALT: ${HASHID_SALT:?}
+    HACKCLUB_CLIENT_ID: ${HACKCLUB_CLIENT_ID:?}
+    HACKCLUB_CLIENT_SECRET: ${HACKCLUB_CLIENT_SECRET:?}
+    # From `bin/rails db:encryption:init`. Back these up with the database.
+    AR_ENCRYPTION_PRIMARY_KEY: ${AR_ENCRYPTION_PRIMARY_KEY:?}
+    AR_ENCRYPTION_DETERMINISTIC_KEY: ${AR_ENCRYPTION_DETERMINISTIC_KEY:?}
+    AR_ENCRYPTION_KEY_DERIVATION_SALT: ${AR_ENCRYPTION_KEY_DERIVATION_SALT:?}
+    WEB_CONCURRENCY: ${WEB_CONCURRENCY:-2}
+
+services:
+  # Thruster in front of Puma on :80. Attach STAFF_HOST (and the hostname
+  # Vercel uses for RAILS_URL) to this service; the platform's proxy terminates
+  # TLS, which production.rb already assumes via assume_ssl.
+  web:
+    <<: *app
+    expose:
+      - "80"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost/up"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+
+  # Solid Queue worker. Waits for web to be healthy so db:prepare has run
+  # before the first job touches the queue tables.
+  jobs:
+    <<: *app
+    command: ["./bin/jobs"]
+    depends_on:
+      web:
+        condition: service_healthy
