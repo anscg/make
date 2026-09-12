@@ -14,6 +14,11 @@ x-app: &app
   build:
     context: .
   restart: unless-stopped
+  # Dokploy puts its database resources and Traefik on this shared network.
+  # Without it the stack gets a private network of its own, the Postgres
+  # hostname does not resolve, and the staff domain has nothing to route to.
+  networks:
+    - dokploy-network
   environment:
     RAILS_MASTER_KEY: ${RAILS_MASTER_KEY:?}
     DATABASE_URL: ${DATABASE_URL:?}
@@ -57,3 +62,7 @@ services:
     depends_on:
       web:
         condition: service_healthy
+
+networks:
+  dokploy-network:
+    external: true
