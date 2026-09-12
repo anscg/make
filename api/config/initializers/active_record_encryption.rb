@@ -8,7 +8,12 @@
 #
 #   bin/rails db:encryption:init
 Rails.application.configure do
-  if Rails.env.local?
+  # SECRET_KEY_BASE_DUMMY is what the Dockerfile sets for `assets:precompile`:
+  # Rails invents a throwaway secret_key_base so the app can boot without real
+  # secrets. Derive throwaway encryption keys from it too, or the build fails
+  # at the fetch below. Nothing is encrypted during precompile, and the real
+  # keys are still required the moment the container runs.
+  if Rails.env.local? || ENV["SECRET_KEY_BASE_DUMMY"].present?
     # Deterministic in development and test so a fresh clone works from
     # `bin/setup` alone and dumps stay readable across machines.
     derived = ->(label) { Digest::SHA256.hexdigest("#{Rails.application.secret_key_base}:#{label}")[0, 32] }
