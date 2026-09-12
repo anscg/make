@@ -1,0 +1,73 @@
+#!/usr/bin/env bash
+# Create the four production databases Rails expects on one Postgres server
+# and print (or write) the matching *_DATABASE_URL values.
+#
+#   bin/create-databases 'postgres://user:pass@host:5432/postgres'
+#   bin/create-databases 'postgres://user:pass@host:5432/postgres' --env tmp/.env.production
+#   bin/create-databases 'postgres://user:pass@public-host:5432/postgres' --internal-host make-db
+#
+# --internal-host  hostname[:port] to put in the URLs instead of the one you
+#                  connected with. Use it when you reach the server through a
+#                  temporary public port but the app talks to it on Dokploy's
+#                  internal network.
+# --env FILE       replace the four *_DATABASE_URL= lines in FILE in place.
+# --dry-run        skip Postgres entirely; only print/write the URLs.
+set -euo pipefail
+
+usage() { sed -n '2,15p' "$0"; exit 1; }
+
+URL="${1:-}"; [[ -z "$URL" || "$URL" == -* ]] && usage
+shift
+ENV_FILE=""; INTERNAL_HOST=""; DRY_RUN=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --env) ENV_FILE="$2"; shift 2 ;;
+    --internal-host) INTERNAL_HOST="$2"; shift 2 ;;
+    --dry-run) DRY_RUN=1; shift ;;
+    *) usage ;;
+  esac
+done
+
+DBS=(make make_cache make_queue make_cable)
+KEYS=(DATABASE_URL CACHE_DATABASE_URL QUEUE_DATABASE_URL CABLE_DATABASE_URL)
+
+if [[ -z "$DRY_RUN" ]]; then
+  command -v psql >/dev/null || { echo "psql not found; brew install libpq" >&2; exit 1; }
+  echo "Connecting..." >&2
+  psql "$URL" -qtAc 'select version()' >/dev/null
+
+  for db in "${DBS[@]}"; do
+    if [[ $(psql "$URL" -qtAc "select 1 from pg_database where datname='$db'") == 1 ]]; then
+      echo "exists   $db" >&2
+    else
+      psql "$URL" -qc "create database \"$db\"" >/dev/null
+      echo "created  $db" >&2
+    fi
+  done
+  echo >&2
+fi
+
+# Rebuild the URL with the database name (and optionally host) swapped.
+QUERY=""; [[ "$URL" == *\?* ]] && QUERY="?${URL#*\?}"
+BASE="${URL%%\?*}"                     # strip ?query
+BASE="${BASE%/*}"                      # strip /dbname
+if [[ -n "$INTERNAL_HOST" ]]; then
+  CREDS="${BASE#*://}"; CREDS="${CREDS%@*}"
+  BASE="postgres://${CREDS}@${INTERNAL_HOST}"
+fi
+
+for i in "${!DBS[@]}"; do
+  line="${KEYS[$i]}=${BASE}/${DBS[$i]}${QUERY}"
+  if [[ -n "$ENV_FILE" ]]; then
+    if grep -q "^${KEYS[$i]}=" "$ENV_FILE"; then
+      tmp=$(mktemp)
+      awk -v k="${KEYS[$i]}=" -v v="$line" 'index($0,k)==1{print v;next}{print}' "$ENV_FILE" > "$tmp"
+      cat "$tmp" > "$ENV_FILE"; rm -f "$tmp"
+    else
+      echo "$line" >> "$ENV_FILE"
+    fi
+  else
+    echo "$line"
+  fi
+done
+[[ -n "$ENV_FILE" ]] && echo "wrote 4 URLs into $ENV_FILE" >&2 || true
